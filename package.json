@@ -1,0 +1,13 @@
+{
+  "name": "coder-port-share",
+  "version": "1.0.0",
+  "description": "Share a Coder workspace port publicly from the CLI",
+  "bin": {
+    "coder-port-share": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": ["coder", "coder.com", "port-share", "cli"],
+  "license": "MIT"
+}
