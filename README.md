@@ -5,15 +5,15 @@ Share a Coder workspace port publicly — no npm install required.
 ## Usage
 
 ```bash
-npx github:iamriajul/coder-port-share <workspace> <port> [level]
+npx --yes github:iamriajul/coder-port-share <workspace> <port> [level]
 ```
 
 ## Examples
 
 ```bash
-npx github:iamriajul/coder-port-share em 3000
-npx github:iamriajul/coder-port-share em 3000 authenticated
-npx github:iamriajul/coder-port-share em 3000 owner
+npx --yes github:iamriajul/coder-port-share em 3000
+npx --yes github:iamriajul/coder-port-share em 3000 authenticated
+npx --yes github:iamriajul/coder-port-share em 3000 owner
 ```
 
 ## Share Levels
