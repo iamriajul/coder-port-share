@@ -2,6 +2,10 @@
 
 const https = require("https");
 const http = require("http");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { execFileSync } = require("child_process");
 
 const SHARE_LEVELS = new Set(["public", "authenticated", "owner"]);
 
@@ -28,6 +32,58 @@ function required(name, value, fallbackName) {
   if (value) return value;
   const suffix = fallbackName ? ` (or ${fallbackName})` : "";
   throw new Error(`${name}${suffix} is not set`);
+}
+
+function readFileIfPresent(filePath) {
+  try {
+    const value = fs.readFileSync(filePath, "utf8").trim();
+    return value || undefined;
+  } catch (err) {
+    if (err.code === "ENOENT" || err.code === "ENOTDIR") return undefined;
+    return undefined;
+  }
+}
+
+function coderConfigDir(env) {
+  return env.CODER_CONFIG_DIR || path.join(os.homedir(), ".config", "coderv2");
+}
+
+function resolveBaseUrl(env) {
+  return normalizeBaseUrl(
+    required(
+      "CODER_URL",
+      env.CODER_URL || env.CODER_AGENT_URL || readFileIfPresent(path.join(coderConfigDir(env), "url")),
+      "CODER_AGENT_URL",
+    ),
+  );
+}
+
+function sessionTokenFromCoderCli(env) {
+  try {
+    const coderBinary = env.CODER_PORT_SHARE_CODER_BINARY || "coder";
+    return execFileSync(coderBinary, ["login", "token"], {
+      encoding: "utf8",
+      env,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim() || undefined;
+  } catch (_err) {
+    return undefined;
+  }
+}
+
+function resolveSessionToken(env) {
+  if (env.CODER_SESSION_TOKEN) return env.CODER_SESSION_TOKEN;
+
+  const cliToken = sessionTokenFromCoderCli(env);
+  if (cliToken) return cliToken;
+
+  const fileToken = readFileIfPresent(path.join(coderConfigDir(env), "session"));
+  if (fileToken) return fileToken;
+
+  throw new Error(
+    "No Coder user session token found. Run `coder login <url>` or set CODER_SESSION_TOKEN. " +
+      "CODER_AGENT_TOKEN is an agent token and cannot authenticate the port-share API.",
+  );
 }
 
 function normalizeBaseUrl(rawUrl) {
@@ -94,14 +150,8 @@ async function main() {
     throw new Error("Port must be an integer between 9 and 65535");
   }
 
-  const baseUrl = normalizeBaseUrl(
-    required("CODER_AGENT_URL", process.env.CODER_AGENT_URL || process.env.CODER_URL, "CODER_URL"),
-  );
-  const token = required(
-    "CODER_AGENT_TOKEN",
-    process.env.CODER_AGENT_TOKEN || process.env.CODER_SESSION_TOKEN,
-    "CODER_SESSION_TOKEN",
-  );
+  const baseUrl = resolveBaseUrl(process.env);
+  const token = resolveSessionToken(process.env);
   const workspaceId = required("CODER_WORKSPACE_ID", process.env.CODER_WORKSPACE_ID);
   const agentName = process.env.CODER_WORKSPACE_AGENT_NAME || "main";
 
