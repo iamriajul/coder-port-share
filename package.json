@@ -6,7 +6,8 @@
     "coder-port-share": "index.js"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "keywords": ["coder", "coder.com", "port-share", "cli"],
   "license": "MIT"
