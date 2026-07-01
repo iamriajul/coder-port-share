@@ -1,10 +1,12 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const path = require("node:path");
 const { test } = require("node:test");
 
 const cliPath = path.join(__dirname, "..", "index.js");
+const skillPath = path.join(__dirname, "..", "SKILL.md");
 
 function runCli(args, env) {
   return new Promise((resolve) => {
@@ -52,6 +54,17 @@ function startMockCoder(handler) {
     });
   });
 }
+
+test("SKILL.md teaches coding agents the exact CLI contract", () => {
+  const skill = fs.readFileSync(skillPath, "utf8");
+
+  assert.match(skill, /npx --yes github:iamriajul\/coder-port-share <port> \[level\] \[workspace\]/);
+  assert.match(skill, /CODER_WORKSPACE_ID/);
+  assert.match(skill, /does not select or resolve the workspace by name/);
+  assert.match(skill, /CODER_AGENT_URL/);
+  assert.match(skill, /CODER_AGENT_TOKEN/);
+  assert.match(skill, /CODER_WORKSPACE_AGENT_NAME/);
+});
 
 test("accepts port, level, workspace order without resolving workspace by name", async (t) => {
   const workspaceId = "0a9cfc12-4b0a-4b9b-8f29-5931938caa18";
