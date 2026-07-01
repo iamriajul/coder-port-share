@@ -53,7 +53,7 @@ function startMockCoder(handler) {
   });
 }
 
-test("uses current Coder workspace env without resolving workspace by name", async (t) => {
+test("accepts port, level, workspace order without resolving workspace by name", async (t) => {
   const workspaceId = "0a9cfc12-4b0a-4b9b-8f29-5931938caa18";
   const mock = await startMockCoder((req, res) => {
     assert.equal(req.method, "POST");
@@ -63,7 +63,7 @@ test("uses current Coder workspace env without resolving workspace by name", asy
   });
   t.after(() => mock.close());
 
-  const result = await runCli(["3000", "authenticated"], {
+  const result = await runCli(["3000", "authenticated", "custom-workspace"], {
     CODER_AGENT_URL: mock.baseUrl,
     CODER_AGENT_TOKEN: "agent-token",
     CODER_WORKSPACE_ID: workspaceId,
@@ -86,7 +86,7 @@ test("uses current Coder workspace env without resolving workspace by name", asy
   });
   assert.match(
     result.stdout.trim(),
-    /^https:\/\/3000--dev-agent--deepcycle--iamriajul\.127\.0\.0\.1:\d+\/$/,
+    /^https:\/\/3000--dev-agent--custom-workspace--iamriajul\.127\.0\.0\.1:\d+\/$/,
   );
 });
 
@@ -121,11 +121,11 @@ test("keeps legacy URL and token fallbacks when current workspace env is present
   });
   t.after(() => mock.close());
 
-  const result = await runCli(["8080", "owner"], {
+  const result = await runCli(["8080", "owner", "custom"], {
     CODER_URL: mock.baseUrl,
     CODER_SESSION_TOKEN: "legacy-token",
     CODER_WORKSPACE_ID: workspaceId,
-    CODER_WORKSPACE_NAME: "custom",
+    CODER_WORKSPACE_NAME: "env-workspace",
     CODER_WORKSPACE_AGENT_NAME: "main",
     CODER_WORKSPACE_OWNER_NAME: "legacy-user",
   });

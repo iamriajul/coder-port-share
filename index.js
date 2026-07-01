@@ -6,19 +6,19 @@ const http = require("http");
 const SHARE_LEVELS = new Set(["public", "authenticated", "owner"]);
 
 function usage() {
-  console.error("Usage: coder-port-share <port> [level]");
-  console.error("  workspace: uses CODER_WORKSPACE_NAME from the current Coder workspace");
+  console.error("Usage: coder-port-share <port> [level] [workspace]");
+  console.error("  workspace: optional name for the app URL, defaults to CODER_WORKSPACE_NAME");
   console.error("  level: public (default) | authenticated | owner");
 }
 
 function parseArgs(args, env) {
-  const [port, level = "public", ...extra] = args;
+  const [port, level = "public", workspace = env.CODER_WORKSPACE_NAME, ...extra] = args;
   if (!port || extra.length > 0) {
     return { error: "invalid arguments" };
   }
 
   return {
-    workspace: env.CODER_WORKSPACE_NAME,
+    workspace,
     port,
     level,
   };
