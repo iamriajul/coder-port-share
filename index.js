@@ -6,29 +6,21 @@ const http = require("http");
 const SHARE_LEVELS = new Set(["public", "authenticated", "owner"]);
 
 function usage() {
-  console.error("Usage: coder-port-share [workspace] <port> [level]");
-  console.error("  workspace: defaults to CODER_WORKSPACE_NAME when omitted");
+  console.error("Usage: coder-port-share <port> [level]");
+  console.error("  workspace: uses CODER_WORKSPACE_NAME from the current Coder workspace");
   console.error("  level: public (default) | authenticated | owner");
 }
 
 function parseArgs(args, env) {
-  const [first, second, third, ...extra] = args;
-  if (!first || extra.length > 0) {
+  const [port, level = "public", ...extra] = args;
+  if (!port || extra.length > 0) {
     return { error: "invalid arguments" };
-  }
-
-  if (second && !SHARE_LEVELS.has(second)) {
-    return {
-      workspace: first,
-      port: second,
-      level: third || "public",
-    };
   }
 
   return {
     workspace: env.CODER_WORKSPACE_NAME,
-    port: first,
-    level: second || "public",
+    port,
+    level,
   };
 }
 
@@ -76,20 +68,6 @@ function request(url, options = {}) {
   });
 }
 
-async function resolveWorkspaceId({ baseUrl, headers, workspace, workspaceId }) {
-  if (workspaceId) return workspaceId;
-
-  const workspacesRes = await request(
-    `${baseUrl}/api/v2/workspaces?name=${encodeURIComponent(workspace)}`,
-    { headers },
-  );
-  const found = workspacesRes.workspaces && workspacesRes.workspaces[0];
-  if (!found || !found.id) {
-    throw new Error(`Workspace not found: ${workspace}`);
-  }
-  return found.id;
-}
-
 async function resolveOwnerName({ baseUrl, headers, ownerName }) {
   if (ownerName) return ownerName;
 
@@ -124,6 +102,7 @@ async function main() {
     process.env.CODER_AGENT_TOKEN || process.env.CODER_SESSION_TOKEN,
     "CODER_SESSION_TOKEN",
   );
+  const workspaceId = required("CODER_WORKSPACE_ID", process.env.CODER_WORKSPACE_ID);
   const agentName = process.env.CODER_WORKSPACE_AGENT_NAME || "main";
 
   const headers = {
@@ -131,19 +110,11 @@ async function main() {
     "Content-Type": "application/json",
   };
 
-  const [workspaceId, ownerName] = await Promise.all([
-    resolveWorkspaceId({
-      baseUrl,
-      headers,
-      workspace: parsed.workspace,
-      workspaceId: process.env.CODER_WORKSPACE_ID,
-    }),
-    resolveOwnerName({
-      baseUrl,
-      headers,
-      ownerName: process.env.CODER_WORKSPACE_OWNER_NAME,
-    }),
-  ]);
+  const ownerName = await resolveOwnerName({
+    baseUrl,
+    headers,
+    ownerName: process.env.CODER_WORKSPACE_OWNER_NAME,
+  });
 
   const body = JSON.stringify({
     agent_name: agentName,

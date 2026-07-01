@@ -53,7 +53,7 @@ function startMockCoder(handler) {
   });
 }
 
-test("uses Coder agent environment defaults inside a workspace", async (t) => {
+test("uses current Coder workspace env without resolving workspace by name", async (t) => {
   const workspaceId = "0a9cfc12-4b0a-4b9b-8f29-5931938caa18";
   const mock = await startMockCoder((req, res) => {
     assert.equal(req.method, "POST");
@@ -90,35 +90,49 @@ test("uses Coder agent environment defaults inside a workspace", async (t) => {
   );
 });
 
-test("keeps explicit workspace support with legacy Coder env", async (t) => {
-  const workspaceId = "11111111-2222-3333-4444-555555555555";
-  const mock = await startMockCoder((req, res) => {
+test("requires CODER_WORKSPACE_ID instead of resolving workspace by name", async (t) => {
+  const mock = await startMockCoder((_req, res) => {
+    res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    if (req.method === "GET" && req.url === "/api/v2/workspaces?name=custom") {
-      res.end(JSON.stringify({ workspaces: [{ id: workspaceId }] }));
-      return;
-    }
-    if (req.method === "GET" && req.url === "/api/v2/users/me") {
-      res.end(JSON.stringify({ username: "legacy-user" }));
-      return;
-    }
-    if (req.method === "POST" && req.url === `/api/v2/workspaces/${workspaceId}/port-share`) {
-      res.end(JSON.stringify({ ok: true }));
-      return;
-    }
-    res.statusCode = 404;
-    res.end(JSON.stringify({ message: "not found" }));
+    res.end(JSON.stringify({ message: "unexpected request" }));
   });
   t.after(() => mock.close());
 
-  const result = await runCli(["custom", "8080", "owner"], {
+  const result = await runCli(["3000"], {
+    CODER_AGENT_URL: mock.baseUrl,
+    CODER_AGENT_TOKEN: "agent-token",
+    CODER_WORKSPACE_NAME: "deepcycle",
+    CODER_WORKSPACE_AGENT_NAME: "dev-agent",
+    CODER_WORKSPACE_OWNER_NAME: "iamriajul",
+  });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /CODER_WORKSPACE_ID is not set/);
+  assert.equal(mock.requests.length, 0);
+});
+
+test("keeps legacy URL and token fallbacks when current workspace env is present", async (t) => {
+  const workspaceId = "11111111-2222-3333-4444-555555555555";
+  const mock = await startMockCoder((req, res) => {
+    assert.equal(req.method, "POST");
+    assert.equal(req.url, `/api/v2/workspaces/${workspaceId}/port-share`);
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ ok: true }));
+  });
+  t.after(() => mock.close());
+
+  const result = await runCli(["8080", "owner"], {
     CODER_URL: mock.baseUrl,
     CODER_SESSION_TOKEN: "legacy-token",
+    CODER_WORKSPACE_ID: workspaceId,
+    CODER_WORKSPACE_NAME: "custom",
+    CODER_WORKSPACE_AGENT_NAME: "main",
+    CODER_WORKSPACE_OWNER_NAME: "legacy-user",
   });
 
   assert.equal(result.code, 0, result.stderr);
-  assert.equal(mock.requests.length, 3);
-  const post = mock.requests.find((req) => req.method === "POST");
+  assert.equal(mock.requests.length, 1);
+  const post = mock.requests[0];
   assert.equal(post.headers["coder-session-token"], "legacy-token");
   assert.deepEqual(JSON.parse(post.body), {
     agent_name: "main",
